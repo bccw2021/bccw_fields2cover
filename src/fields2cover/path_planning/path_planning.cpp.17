@@ -200,7 +200,7 @@ std::vector<F2CPoint> PathPlanning::planPathWithOMPL(
     //    return PathPlanning::isStateValidOMPL(state, shrunken_field_boundary, inflated_obstacles);
     //  }
     //);
-    ss.setStateValidityChecker([&field_boundary, &obstacles](const ompl::base::State* state) {
+    ss.getStateValidityChecker([&field_boundary, &obstacles](const ompl::base::State* state) {
         return PathPlanning::isStateValidOMPL(state, field_boundary, obstacles);
       }
     );

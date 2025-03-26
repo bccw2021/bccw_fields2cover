@@ -82,24 +82,12 @@ class PathPlanning {
       TurningBase& turn);
 
   /// 检测OMPL状态是否有效
-  //static bool isStateValidOMPL(const ompl::base::State* state, const std::vector<F2CCell>& obstacles, double robot_width);
-  static bool isStateValidOMPL(const ompl::base::State* state,
-                     const F2CCell& shrunken_field_boundary,
-                     const std::vector<F2CCell>& inflated_obstacles);
-
+  static bool isStateValidOMPL(const ompl::base::State* state, const std::vector<F2CCell>& obstacles, double robot_width);
 
   /// 使用OMPL规划避障路径
-  //static std::vector<F2CPoint> planPathWithOMPL(
-  //    const F2CPoint& start_point,
-  //    const F2CPoint& end_point,
-  //    const std::vector<F2CCell>& obstacles,
-  //    double robot_width,
-  //    double planning_time = 1.0);
-
   static std::vector<F2CPoint> planPathWithOMPL(
       const F2CPoint& start_point,
       const F2CPoint& end_point,
-      const F2CCell& field_boundary,
       const std::vector<F2CCell>& obstacles,
       double robot_width,
       double planning_time = 1.0);

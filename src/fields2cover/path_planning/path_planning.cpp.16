@@ -43,326 +43,208 @@ F2CPath PathPlanning::planPath(const F2CRobot& robot,
   return path;
 }
 
-//// 使用OMPL规划避障路径
-//std::vector<F2CPoint> PathPlanning::planPathWithOMPL(
-//    const F2CPoint& start_point,
-//    const F2CPoint& end_point,
-//    const std::vector<F2CCell>& obstacles,
-//    double robot_width,
-//    double planning_time) {  // 规划时间
-//    
-//    std::cout << "[OMPL规划] 开始使用OMPL规划避障路径" << std::endl;
-//    std::cout << "[OMPL规划] 起点: (" << start_point.getX() << ", " << start_point.getY() << ")" << std::endl;
-//    std::cout << "[OMPL规划] 终点: (" << end_point.getX() << ", " << end_point.getY() << ")" << std::endl;
-//    
-//    // 创建OMPL状态空间 (2D)
-//    auto space(std::make_shared<ompl::base::RealVectorStateSpace>(2));
-//    
-//    // 计算状态空间边界 (基于起点和终点位置，加上足够的边界)
-//    double min_x = std::min(start_point.getX(), end_point.getX()) - 20.0;
-//    double max_x = std::max(start_point.getX(), end_point.getX()) + 20.0;
-//    double min_y = std::min(start_point.getY(), end_point.getY()) - 20.0;
-//    double max_y = std::max(start_point.getY(), end_point.getY()) + 20.0;
-//    
-//    // 设置状态空间边界
-//    ompl::base::RealVectorBounds bounds(2);
-//    bounds.setLow(0, min_x);
-//    bounds.setHigh(0, max_x);
-//    bounds.setLow(1, min_y);
-//    bounds.setHigh(1, max_y);
-//    space->setBounds(bounds);
-//    
-//    // 创建简单设置对象
-//    ompl::geometric::SimpleSetup ss(space);
-//    
-//    // 设置状态有效性检查器
-//    double safety_margin = robot_width * 1.5;  // 使用与A*相同的安全距离计算
-//    ss.setStateValidityChecker(
-//        [&obstacles, safety_margin](const ompl::base::State* state) {
-//            return PathPlanning::isStateValidOMPL(state, obstacles, safety_margin);
-//        }
-//    );
-//    
-//    // 定义起点
-//    ompl::base::ScopedState<ompl::base::RealVectorStateSpace> start(space);
-//    start[0] = start_point.getX();
-//    start[1] = start_point.getY();
-//    
-//    // 定义终点
-//    ompl::base::ScopedState<ompl::base::RealVectorStateSpace> goal(space);
-//    goal[0] = end_point.getX();
-//    goal[1] = end_point.getY();
-//    
-//    // 设置起点和终点
-//    ss.setStartAndGoalStates(start, goal);
-//    
-//    // 设置规划器 (使用RRT*，更优质的路径)
-//    auto planner(std::make_shared<ompl::geometric::RRTstar>(ss.getSpaceInformation()));
-//    ss.setPlanner(planner);
-//    
-//    // 尝试解决问题
-//    std::cout << "[OMPL规划] 开始规划 (最大允许" << planning_time << "秒)" << std::endl;
-//    ompl::base::PlannerStatus solved = ss.solve(planning_time);
-//    
-//    // 检查是否找到解决方案
-//    if (solved) {
-//        std::cout << "[OMPL规划] 成功找到路径!" << std::endl;
-//        
-//        // 获取路径
-//        ompl::geometric::PathGeometric& path = ss.getSolutionPath();
-//        
-//        // 优化路径，使其更平滑
-//        std::cout << "[OMPL规划] 优化路径..." << std::endl;
-//        ss.simplifySolution();
-//        path = ss.getSolutionPath();
-//        
-//        // 对路径进行插值，使其更平滑
-//        path.interpolate(50);
-//        
-//        // 将OMPL路径转换为F2CPoint的向量
-//        std::vector<F2CPoint> result_path;
-//        
-//        // 确保第一个点是准确的起点
-//        result_path.push_back(start_point);
-//        
-//        // 添加中间点
-//        for (size_t i = 1; i < path.getStateCount() - 1; ++i) {
-//            const auto* state = path.getState(i)->as<ompl::base::RealVectorStateSpace::StateType>();
-//            result_path.push_back(F2CPoint(state->values[0], state->values[1]));
-//        }
-//        
-//        // 确保最后一个点是准确的终点
-//        result_path.push_back(end_point);
-//        
-//        std::cout << "[OMPL规划] 生成路径共有" << result_path.size() << "个点" << std::endl;
-//        return result_path;
-//    }
-//    else {
-//        std::cout << "[OMPL规划] 未能找到路径" << std::endl;
-//        return {};
-//    }
-//}
-
+// 使用OMPL规划避障路径
 std::vector<F2CPoint> PathPlanning::planPathWithOMPL(
     const F2CPoint& start_point,
     const F2CPoint& end_point,
-    const F2CCell& field_boundary,
     const std::vector<F2CCell>& obstacles,
     double robot_width,
-    double planning_time) {
-    std::cout << "[OMPL Planning] Starting OMPL path planning..." << std::endl;
-
-    //double safety_margin = robot_width / 2.0;
-    //F2CCell shrunken_field_boundary = F2CCells::buffer(field_boundary, -safety_margin);
-    //std::vector<F2CCell> inflated_obstacles;
-    //for (const auto& obstacle : obstacles) {
-    //    F2CCell inflated_obstacle = F2CCells::buffer(obstacle, safety_margin);
-    //    inflated_obstacles.push_back(inflated_obstacle);
-    //}
-
-//f2c::types::Cells shrunken_field_boundary_cells = f2c::types::Cells::buffer(field_boundary, -safety_margin);
-//if (shrunken_field_boundary_cells.size() == 1) {
-//    F2CCell shrunken_field_boundary = shrunken_field_boundary_cells.getCell(0);
-//    // 继续处理
-//} else {
-//    // 处理错误或空的情况
-//}
-//
-//for (const auto& obstacle : obstacles) {
-//    f2c::types::Cells inflated_obstacle_cells = f2c::types::Cells::buffer(obstacle, safety_margin);
-//    if (inflated_obstacle_cells.size() == 1) {
-//        F2CCell inflated_obstacle = inflated_obstacle_cells.getCell(0);
-//        inflated_obstacles.push_back(inflated_obstacle);
-//    } else {
-//        // 处理错误或多个单元格的情况
-//    }
-//}
-
-    auto space = std::make_shared<ompl::base::RealVectorStateSpace>(2);
+    double planning_time) {  // 规划时间
+    
+    std::cout << "[OMPL规划] 开始使用OMPL规划避障路径" << std::endl;
+    std::cout << "[OMPL规划] 起点: (" << start_point.getX() << ", " << start_point.getY() << ")" << std::endl;
+    std::cout << "[OMPL规划] 终点: (" << end_point.getX() << ", " << end_point.getY() << ")" << std::endl;
+    
+    // 创建OMPL状态空间 (2D)
+    auto space(std::make_shared<ompl::base::RealVectorStateSpace>(2));
+    
+    // 计算状态空间边界 (基于起点和终点位置，加上足够的边界)
     double min_x = std::min(start_point.getX(), end_point.getX()) - 20.0;
     double max_x = std::max(start_point.getX(), end_point.getX()) + 20.0;
     double min_y = std::min(start_point.getY(), end_point.getY()) - 20.0;
     double max_y = std::max(start_point.getY(), end_point.getY()) + 20.0;
+    
+    // 设置状态空间边界
     ompl::base::RealVectorBounds bounds(2);
     bounds.setLow(0, min_x);
     bounds.setHigh(0, max_x);
     bounds.setLow(1, min_y);
     bounds.setHigh(1, max_y);
     space->setBounds(bounds);
-
-//    ss.setStateValidityChecker(
-//        [&obstacles, safety_margin](const ompl::base::State* state) {
-//            return PathPlanning::isStateValidOMPL(state, obstacles, safety_margin);
-//        }
-//    );
+    
+    // 创建简单设置对象
     ompl::geometric::SimpleSetup ss(space);
-    //ss.getStateValidityChecker([&shrunken_field_boundary, &inflated_obstacles](const ompl::base::State* state) {
-    //    return PathPlanning::isStateValidOMPL(state, shrunken_field_boundary, inflated_obstacles);
-    //  }
-    //);
-    ss.setStateValidityChecker([&field_boundary, &obstacles](const ompl::base::State* state) {
-        return PathPlanning::isStateValidOMPL(state, field_boundary, obstacles);
-      }
+    
+    // 设置状态有效性检查器
+    double safety_margin = robot_width * 1.5;  // 使用与A*相同的安全距离计算
+    ss.setStateValidityChecker(
+        [&obstacles, safety_margin](const ompl::base::State* state) {
+            return PathPlanning::isStateValidOMPL(state, obstacles, safety_margin);
+        }
     );
-
+    
+    // 定义起点
     ompl::base::ScopedState<ompl::base::RealVectorStateSpace> start(space);
     start[0] = start_point.getX();
     start[1] = start_point.getY();
+    
+    // 定义终点
     ompl::base::ScopedState<ompl::base::RealVectorStateSpace> goal(space);
     goal[0] = end_point.getX();
     goal[1] = end_point.getY();
+    
+    // 设置起点和终点
     ss.setStartAndGoalStates(start, goal);
-
-    auto planner = std::make_shared<ompl::geometric::RRTstar>(ss.getSpaceInformation());
+    
+    // 设置规划器 (使用RRT*，更优质的路径)
+    auto planner(std::make_shared<ompl::geometric::RRTstar>(ss.getSpaceInformation()));
     ss.setPlanner(planner);
-
+    
+    // 尝试解决问题
+    std::cout << "[OMPL规划] 开始规划 (最大允许" << planning_time << "秒)" << std::endl;
     ompl::base::PlannerStatus solved = ss.solve(planning_time);
+    
+    // 检查是否找到解决方案
     if (solved) {
-        std::cout << "[OMPL Planning] Path found!" << std::endl;
+        std::cout << "[OMPL规划] 成功找到路径!" << std::endl;
+        
+        // 获取路径
         ompl::geometric::PathGeometric& path = ss.getSolutionPath();
+        
+        // 优化路径，使其更平滑
+        std::cout << "[OMPL规划] 优化路径..." << std::endl;
         ss.simplifySolution();
         path = ss.getSolutionPath();
+        
+        // 对路径进行插值，使其更平滑
         path.interpolate(50);
-
+        
+        // 将OMPL路径转换为F2CPoint的向量
         std::vector<F2CPoint> result_path;
+        
+        // 确保第一个点是准确的起点
         result_path.push_back(start_point);
+        
+        // 添加中间点
         for (size_t i = 1; i < path.getStateCount() - 1; ++i) {
             const auto* state = path.getState(i)->as<ompl::base::RealVectorStateSpace::StateType>();
             result_path.push_back(F2CPoint(state->values[0], state->values[1]));
         }
+        
+        // 确保最后一个点是准确的终点
         result_path.push_back(end_point);
+        
+        std::cout << "[OMPL规划] 生成路径共有" << result_path.size() << "个点" << std::endl;
         return result_path;
-    } else {
-        std::cout << "[OMPL Planning] No path found." << std::endl;
+    }
+    else {
+        std::cout << "[OMPL规划] 未能找到路径" << std::endl;
         return {};
     }
 }
 
-//// OMPL状态有效性检查函数（用于避开障碍物）
-//bool PathPlanning::isStateValidOMPL(const ompl::base::State* state, const std::vector<F2CCell>& obstacles, double robot_width) {
-//  // 获取状态空间中的位置
-//  const ompl::base::RealVectorStateSpace::StateType* pos = 
-//      state->as<ompl::base::RealVectorStateSpace::StateType>();
-//  
-//  // 提取坐标
-//  double x = pos->values[0];
-//  double y = pos->values[1];
-//  
-//  // 创建一个点
-//  F2CPoint point(x, y);
-//  
-//  // 表示当前机器人位置的点
-//  Clipper2Lib::PointD robot_point(x, y);
-//  
-//  // 创建以机器人为中心的圆形区域（用多边形近似）
-//  Clipper2Lib::PathD robot_circle;
-//  double safe_distance = robot_width / 2.0; // 安全距离为机器人半宽度
-//  const int circle_points = 12; // 圆的近似多边形点数
-//  
-//  // 创建多边形近似的圆
-//  for (int i = 0; i < circle_points; ++i) {
-//    double angle = 2.0 * M_PI * i / circle_points;
-//    double px = x + safe_distance * std::cos(angle);
-//    double py = y + safe_distance * std::sin(angle);
-//    robot_circle.push_back(Clipper2Lib::PointD(px, py));
-//  }
-//  // 确保闭合
-//  robot_circle.push_back(robot_circle[0]);
-//  
-//  // 将圆形区域转换为路径
-//  Clipper2Lib::PathsD subject = {robot_circle};
-//  
-//  // 检查每个障碍物
-//  for (const auto& obstacle : obstacles) {
-//    // 检查点是否在障碍物内部（使用F2CCell自带的包含检测）
-//    //if (obstacle.contains(point)) {
-//    if (obstacle.isPointIn(point)) {
-//      return false;
-//    }
-//    
-//    // 使用Clipper2创建障碍物的表示
-//    Clipper2Lib::PathsD clip;
-//    Clipper2Lib::PathD exterior_points;
-//    
-//    // 提取障碍物外环坐标
-//    F2CLinearRing exterior_ring = obstacle.getExteriorRing();
-//    
-//    for (size_t i = 0; i < exterior_ring.size(); ++i) {
-//      F2CPoint p = exterior_ring.getGeometry(i);
-//      exterior_points.push_back({p.getX(), p.getY()});
-//    }
-//    
-//    // 确保多边形闭合（首尾点相同）
-//    if (exterior_ring.size() > 0 && 
-//        (exterior_points[0].x != exterior_points.back().x || 
-//         exterior_points[0].y != exterior_points.back().y)) {
-//      exterior_points.push_back(exterior_points[0]);
-//    }
-//    
-//    clip.push_back(exterior_points);
-//    
-//    // 处理障碍物的内环（洞）
-//    for (size_t j = 0; j < obstacle.size() - 1; ++j) {
-//      Clipper2Lib::PathD interior_points;
-//      F2CLinearRing interior_ring = obstacle.getInteriorRing(j);
-//      
-//      for (size_t i = 0; i < interior_ring.size(); ++i) {
-//        F2CPoint p = interior_ring.getGeometry(i);
-//        interior_points.push_back({p.getX(), p.getY()});
-//      }
-//      
-//      // 确保内环闭合
-//      if (interior_ring.size() > 0 && 
-//          (interior_points[0].x != interior_points.back().x || 
-//           interior_points[0].y != interior_points.back().y)) {
-//        interior_points.push_back(interior_points[0]);
-//      }
-//      
-//      if (!interior_points.empty()) {
-//        clip.push_back(interior_points);
-//      }
-//    }
-//    
-//    // 计算机器人圆形区域与障碍物的交集
-//    Clipper2Lib::PathsD solution = 
-//      Clipper2Lib::Intersect(
-//        subject,                // 机器人圆形区域
-//        clip,                   // 障碍物多边形
-//        Clipper2Lib::FillRule::NonZero  // 非零填充规则
-//      );
-//    
-//    // 如果存在交集，表示机器人太靠近障碍物
-//    if (!solution.empty()) {
-//      return false;
-//    }
-//  }
-//  
-//  return true;
-//}
 
-bool PathPlanning::isStateValidOMPL(const ompl::base::State* state,
-                     const F2CCell& shrunken_field_boundary,
-                     const std::vector<F2CCell>& inflated_obstacles) {
-    const auto* pos = state->as<ompl::base::RealVectorStateSpace::StateType>();
-    double x = pos->values[0];
-    double y = pos->values[1];
-    F2CPoint point(x, y);
-    
-    // 检查点是否在缩小后的字段边界内
-    if (!shrunken_field_boundary.isPointIn(point)) {
-        return false;
+// OMPL状态有效性检查函数（用于避开障碍物）
+bool PathPlanning::isStateValidOMPL(const ompl::base::State* state, const std::vector<F2CCell>& obstacles, double robot_width) {
+  // 获取状态空间中的位置
+  const ompl::base::RealVectorStateSpace::StateType* pos = 
+      state->as<ompl::base::RealVectorStateSpace::StateType>();
+  
+  // 提取坐标
+  double x = pos->values[0];
+  double y = pos->values[1];
+  
+  // 创建一个点
+  F2CPoint point(x, y);
+  
+  // 表示当前机器人位置的点
+  Clipper2Lib::PointD robot_point(x, y);
+  
+  // 创建以机器人为中心的圆形区域（用多边形近似）
+  Clipper2Lib::PathD robot_circle;
+  double safe_distance = robot_width / 2.0; // 安全距离为机器人半宽度
+  const int circle_points = 12; // 圆的近似多边形点数
+  
+  // 创建多边形近似的圆
+  for (int i = 0; i < circle_points; ++i) {
+    double angle = 2.0 * M_PI * i / circle_points;
+    double px = x + safe_distance * std::cos(angle);
+    double py = y + safe_distance * std::sin(angle);
+    robot_circle.push_back(Clipper2Lib::PointD(px, py));
+  }
+  // 确保闭合
+  robot_circle.push_back(robot_circle[0]);
+  
+  // 将圆形区域转换为路径
+  Clipper2Lib::PathsD subject = {robot_circle};
+  
+  // 检查每个障碍物
+  for (const auto& obstacle : obstacles) {
+    // 检查点是否在障碍物内部（使用F2CCell自带的包含检测）
+    //if (obstacle.contains(point)) {
+    if (obstacle.isPointIn(point)) {
+      return false;
     }
     
-    // 检查点是否不在任何扩展的障碍物内
-    for (const auto& inflated_obstacle : inflated_obstacles) {
-        if (inflated_obstacle.isPointIn(point)) {
-            return false;
-        }
+    // 使用Clipper2创建障碍物的表示
+    Clipper2Lib::PathsD clip;
+    Clipper2Lib::PathD exterior_points;
+    
+    // 提取障碍物外环坐标
+    F2CLinearRing exterior_ring = obstacle.getExteriorRing();
+    
+    for (size_t i = 0; i < exterior_ring.size(); ++i) {
+      F2CPoint p = exterior_ring.getGeometry(i);
+      exterior_points.push_back({p.getX(), p.getY()});
     }
     
-    return true;
+    // 确保多边形闭合（首尾点相同）
+    if (exterior_ring.size() > 0 && 
+        (exterior_points[0].x != exterior_points.back().x || 
+         exterior_points[0].y != exterior_points.back().y)) {
+      exterior_points.push_back(exterior_points[0]);
+    }
+    
+    clip.push_back(exterior_points);
+    
+    // 处理障碍物的内环（洞）
+    for (size_t j = 0; j < obstacle.size() - 1; ++j) {
+      Clipper2Lib::PathD interior_points;
+      F2CLinearRing interior_ring = obstacle.getInteriorRing(j);
+      
+      for (size_t i = 0; i < interior_ring.size(); ++i) {
+        F2CPoint p = interior_ring.getGeometry(i);
+        interior_points.push_back({p.getX(), p.getY()});
+      }
+      
+      // 确保内环闭合
+      if (interior_ring.size() > 0 && 
+          (interior_points[0].x != interior_points.back().x || 
+           interior_points[0].y != interior_points.back().y)) {
+        interior_points.push_back(interior_points[0]);
+      }
+      
+      if (!interior_points.empty()) {
+        clip.push_back(interior_points);
+      }
+    }
+    
+    // 计算机器人圆形区域与障碍物的交集
+    Clipper2Lib::PathsD solution = 
+      Clipper2Lib::Intersect(
+        subject,                // 机器人圆形区域
+        clip,                   // 障碍物多边形
+        Clipper2Lib::FillRule::NonZero  // 非零填充规则
+      );
+    
+    // 如果存在交集，表示机器人太靠近障碍物
+    if (!solution.empty()) {
+      return false;
+    }
+  }
+  
+  return true;
 }
-
 
 F2CPath PathPlanning::planPath(const F2CField& field, const F2CRobot& robot, const F2CRoute& route, TurningBase& turn) {
   std::cout << "=========================================="  << std::endl;
@@ -372,10 +254,7 @@ F2CPath PathPlanning::planPath(const F2CField& field, const F2CRobot& robot, con
             
   // 创建空路径对象用于存储结果
   F2CPath path;
- 
-  const F2CCells& cells = field.getField();
-  const F2CCell& field_boundary = cells.getCell(0);
-
+  
   // 提取字段中的障碍物
   std::vector<F2CCell> obstacles;
   for (size_t i = 0; i < field.getField().size(); ++i) {
@@ -390,7 +269,7 @@ F2CPath PathPlanning::planPath(const F2CField& field, const F2CRobot& robot, con
       obstacles.push_back(obstacle);
     }
   }
-
+  
   if (!obstacles.empty()) {
     std::cout << "[路径规划] 检测到" << obstacles.size() << "个障碍物" << std::endl;
   }
@@ -548,8 +427,7 @@ F2CPath PathPlanning::planPath(const F2CField& field, const F2CRobot& robot, con
         
         // 使用OMPL规划避障路径
         //auto ompl_points = planPathWithOMPL(start_point, end_point, obstacles, robot.getWidth(), 2.0);
-        //auto ompl_points = planPathWithOMPL(start_point, end_point, obstacles, robot.getWidth(), 15.0);
-        auto ompl_points = planPathWithOMPL(start_point, end_point, field_boundary, obstacles, robot.getWidth(), 5.0);
+        auto ompl_points = planPathWithOMPL(start_point, end_point, obstacles, robot.getWidth(), 15.0);
         
         // 检查OMPL是否成功找到路径
         if (!ompl_points.empty()) {
@@ -665,8 +543,7 @@ F2CPath PathPlanning::planPath(const F2CField& field, const F2CRobot& robot, con
         F2CPoint end_point = lastConnectionPath[lastConnectionPath.size()-1].atEnd();
         
         // 使用OMPL规划避障路径
-        //auto ompl_points = planPathWithOMPL(start_point, end_point, obstacles, robot.getWidth(), 2.0);
-        auto ompl_points = planPathWithOMPL(start_point, end_point, field_boundary, obstacles, robot.getWidth(), 2.0);
+        auto ompl_points = planPathWithOMPL(start_point, end_point, obstacles, robot.getWidth(), 2.0);
         
         if (!ompl_points.empty()) {
           std::cout << "[重规划] OMPL算法成功找到" << ompl_points.size() << "个安全点" << std::endl;
